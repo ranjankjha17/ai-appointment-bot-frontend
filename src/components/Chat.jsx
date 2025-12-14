@@ -150,6 +150,131 @@
 
 
 
+// import { useState, useRef } from "react";
+// import { sendMessage } from "../api/api";
+
+// export default function App() {
+//   const [messages, setMessages] = useState([]);
+//   const [input, setInput] = useState("");
+//   const recognitionRef = useRef(null);
+
+//   // 🎤 Voice recognition
+//   const startListening = () => {
+//     const SpeechRecognition =
+//       window.SpeechRecognition || window.webkitSpeechRecognition;
+
+//     if (!SpeechRecognition) {
+//       alert("Speech Recognition not supported");
+//       return;
+//     }
+
+//     const recognition = new SpeechRecognition();
+//     recognition.lang = "hi-IN"; // Hindi + English
+//     recognition.interimResults = false;
+//     recognition.continuous = false;
+
+//     recognition.onresult = (event) => {
+//       const spokenText = event.results[0][0].transcript;
+//       setInput(spokenText);
+//       handleSend(spokenText);
+//     };
+
+//     recognition.onerror = (err) => console.error("Voice error:", err);
+//     recognition.start();
+//     recognitionRef.current = recognition;
+//   };
+
+//   // 🗣️ Text-to-Speech (VOICE)
+//   const speak = (text) => {
+//     if (!window.speechSynthesis) return;
+
+//     // Stop any previous speech
+//     window.speechSynthesis.cancel();
+
+//     const utterance = new SpeechSynthesisUtterance(text);
+
+//     // You can switch voice if needed
+//     const voices = window.speechSynthesis.getVoices();
+//     // Example: choose first Hindi/English compatible voice
+//     utterance.voice =
+//       voices.find((v) => v.lang.includes("hi") || v.lang.includes("en")) ||
+//       voices[0];
+
+//     utterance.rate = 1; // speed
+//     utterance.pitch = 1; // pitch
+//     window.speechSynthesis.speak(utterance);
+//   };
+
+//   // 💬 Send message
+//   const handleSend = async (text = input) => {
+//     if (!text) return;
+
+//     setMessages((prev) => [...prev, { role: "user", text }]);
+//     setInput("");
+
+//     try {
+//       const res = await sendMessage(text);
+
+//       setMessages((prev) => [...prev, { role: "bot", text: res.reply }]);
+
+//       // ✅ Speak reply after short delay
+//       setTimeout(() => speak(res.reply), 200);
+//     } catch (err) {
+//       console.error(err);
+//     }
+//   };
+
+//   return (
+//     <div style={{ width: 420, margin: "40px auto", fontFamily: "Arial" }}>
+//       <h2>🧠 AI Appointment Assistant</h2>
+
+//       <div
+//         style={{
+//           border: "1px solid #ccc",
+//           padding: 10,
+//           height: 320,
+//           overflowY: "auto",
+//           borderRadius: 6
+//         }}
+//       >
+//         {messages.map((m, i) => (
+//           <div
+//             key={i}
+//             style={{
+//               textAlign: m.role === "user" ? "right" : "left",
+//               marginBottom: 6
+//             }}
+//           >
+//             <b>{m.role === "user" ? "You" : "Bot"}:</b> {m.text}
+//           </div>
+//         ))}
+//       </div>
+
+//       <input
+//         value={input}
+//         onChange={(e) => setInput(e.target.value)}
+//         placeholder="Type or speak..."
+//         style={{ width: "100%", padding: 8, marginTop: 8 }}
+//       />
+
+//       <button onClick={() => handleSend()} style={{ width: "100%", marginTop: 6 }}>
+//         Send
+//       </button>
+
+//       <button
+//         onClick={startListening}
+//         style={{ width: "100%", marginTop: 6, background: "#0d6efd", color: "#fff", padding: 8 }}
+//       >
+//         🎤 Speak (Hindi / English)
+//       </button>
+//     </div>
+//   );
+// }
+
+
+
+
+
 import { useState, useRef } from "react";
 import { sendMessage } from "../api/api";
 
@@ -158,7 +283,7 @@ export default function App() {
   const [input, setInput] = useState("");
   const recognitionRef = useRef(null);
 
-  // 🎤 Start Voice Recognition
+  // 🎤 Voice Recognition
   const startListening = () => {
     const SpeechRecognition =
       window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -169,7 +294,7 @@ export default function App() {
     }
 
     const recognition = new SpeechRecognition();
-    recognition.lang = "hi-IN"; // Hindi + English
+    recognition.lang = "hi-IN"; // default: Hindi+English
     recognition.interimResults = false;
     recognition.continuous = false;
 
@@ -184,11 +309,31 @@ export default function App() {
     recognitionRef.current = recognition;
   };
 
-  // 🗣️ Text-to-Speech
+  // 🗣️ Text-to-Speech with Language Detection
   const speak = (text) => {
     if (!window.speechSynthesis) return;
+
+    // Detect language: simple check for Hindi characters
+    const isHindi = /[\u0900-\u097F]/.test(text);
+
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = "hi-IN"; // Hindi + English mix
+    const voices = window.speechSynthesis.getVoices();
+
+    // Select voice based on language
+    if (isHindi) {
+      utterance.voice =
+        voices.find((v) => v.lang.includes("hi")) || voices[0];
+      utterance.lang = "hi-IN";
+    } else {
+      utterance.voice =
+        voices.find((v) => v.lang.includes("en")) || voices[0];
+      utterance.lang = "en-US";
+    }
+
+    utterance.rate = 1;
+    utterance.pitch = 1;
+
+    window.speechSynthesis.cancel(); // Stop previous speech
     window.speechSynthesis.speak(utterance);
   };
 
@@ -199,10 +344,16 @@ export default function App() {
     setMessages((prev) => [...prev, { role: "user", text }]);
     setInput("");
 
-    const res = await sendMessage(text);
+    try {
+      const res = await sendMessage(text);
 
-    setMessages((prev) => [...prev, { role: "bot", text: res.reply }]);
-    speak(res.reply); // 🎤 Speak the reply
+      setMessages((prev) => [...prev, { role: "bot", text: res.reply }]);
+
+      // Speak reply in detected language
+      setTimeout(() => speak(res.reply), 200);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   return (
@@ -215,7 +366,7 @@ export default function App() {
           padding: 10,
           height: 320,
           overflowY: "auto",
-          borderRadius: 6
+          borderRadius: 6,
         }}
       >
         {messages.map((m, i) => (
@@ -223,7 +374,7 @@ export default function App() {
             key={i}
             style={{
               textAlign: m.role === "user" ? "right" : "left",
-              marginBottom: 6
+              marginBottom: 6,
             }}
           >
             <b>{m.role === "user" ? "You" : "Bot"}:</b> {m.text}
@@ -238,13 +389,22 @@ export default function App() {
         style={{ width: "100%", padding: 8, marginTop: 8 }}
       />
 
-      <button onClick={() => handleSend()} style={{ width: "100%", marginTop: 6 }}>
+      <button
+        onClick={() => handleSend()}
+        style={{ width: "100%", marginTop: 6 }}
+      >
         Send
       </button>
 
       <button
         onClick={startListening}
-        style={{ width: "100%", marginTop: 6, background: "#0d6efd", color: "#fff", padding: 8 }}
+        style={{
+          width: "100%",
+          marginTop: 6,
+          background: "#0d6efd",
+          color: "#fff",
+          padding: 8,
+        }}
       >
         🎤 Speak (Hindi / English)
       </button>
