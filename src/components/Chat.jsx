@@ -140,12 +140,20 @@
 
 
 import { useState, useRef } from "react";
-import { sendMessage } from "../api/api";
+import { logout, sendMessage } from "../api/api";
 
-export default function Chat() {
+export default function Chat({ setAuth }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const recognitionRef = useRef(null);
+  const sessionId = localStorage.getItem("sessionId") ||
+    crypto.randomUUID();
+
+  localStorage.setItem("sessionId", sessionId);
+  const handleLogout = () => {
+    logout();
+    setAuth(false);
+  };
 
   // 🎤 START VOICE INPUT
   const startListening = () => {
@@ -211,7 +219,7 @@ export default function Chat() {
   return (
     <div style={{ width: 420, margin: "40px auto", fontFamily: "Arial" }}>
       <h3>🧠 AI Appointment Assistant</h3>
-
+      <button onClick={handleLogout}>🚪 Logout</button>
       <div
         style={{
           border: "1px solid #ccc",
